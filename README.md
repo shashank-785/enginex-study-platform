@@ -2,7 +2,7 @@
 
 **Learn. Practice. Recall. Master.**
 
-Enginex is a responsive engineering study-planning prototype. It includes a landing page, a seven-step curriculum setup, a dashboard, study tasks, active-recall quizzes, daily practice, timed weekly tests, progress analytics, resources, and settings.
+Enginex is a responsive engineering study-planning prototype. It includes a landing page, a seven-step curriculum setup, a dashboard, study tasks, active-recall quizzes, daily practice, timed weekly tests, progress analytics, resources, a Full-Stack and C++ DSA career track, a local project portfolio, and settings.
 
 ## Run locally on Windows
 
@@ -24,6 +24,7 @@ The workflow in `.github/workflows/pages.yml` deploys the site after a push to `
 
 - Student data and progress are stored in this browser's local storage; there is no account service, server database, or cross-device synchronization.
 - PDF books and notes added in Resources are kept in this browser's IndexedDB storage (up to 50 MB per file). They are not uploaded or synchronized across devices, and may be removed if browser site data is cleared.
+- The Web Dev & DSA area schedules three hours of Full-Stack Web Development and three hours of C++ DSA on Friday, Saturday, and Sunday. These are additional to the regular study schedule; session completion and portfolio projects are stored in the browser and included in configured account sync.
 - Sample subjects and topic questions are illustrative starter material. Verify them against the applicable university syllabus.
 - Questions marked **PYQ-Style Practice** are not represented as authentic university past papers. No PYQ source has been verified by this prototype.
 - Supported YouTube video and playlist links can be played in an embedded YouTube player inside Enginex. Playback still depends on the source video's embedding permissions and network access.

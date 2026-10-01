@@ -11,7 +11,49 @@
   const NAV = [
     ["dashboard", "Dashboard", "⌂"], ["curriculum", "My Curriculum", "▤"], ["tasks", "Daily Tasks", "✓"],
     ["dpps", "DPPs", "✎"], ["quiz", "Flash Quiz", "◇"], ["tests", "Weekly Tests", "▦"],
-    ["coding-challenge", "C Challenge", "⌨"], ["progress", "Progress", "↗"], ["resources", "Resources", "▧"], ["settings", "Settings", "⚙"]
+    ["coding-challenge", "C Challenge", "⌨"], ["career", "Web Dev & DSA", "⌘"], ["progress", "Progress", "↗"], ["resources", "Resources", "▧"], ["settings", "Settings", "⚙"]
+  ];
+  const CAREER_TRACKS = [
+    {
+      id: "fullstack",
+      name: "Full-Stack Web Development",
+      short: "Full-stack",
+      icon: "◫",
+      topics: [
+        "HTML semantics and accessible page structure",
+        "CSS layout, Flexbox, Grid, and responsive design",
+        "JavaScript fundamentals, DOM, and browser events",
+        "Git, GitHub, and collaborative workflow",
+        "Modern JavaScript, modules, and asynchronous code",
+        "React components, props, state, and forms",
+        "React routing, data fetching, and reusable UI",
+        "Node.js, Express, and REST API design",
+        "Database fundamentals and SQL data modeling",
+        "Authentication, authorization, and secure validation",
+        "Testing, debugging, and accessibility review",
+        "Deploy a full-stack portfolio project"
+      ]
+    },
+    {
+      id: "dsa-cpp",
+      name: "Data Structures & Algorithms in C++",
+      short: "DSA in C++",
+      icon: "{ }",
+      topics: [
+        "C++ setup, input/output, functions, and STL basics",
+        "Time complexity, arrays, and vector operations",
+        "Strings, hashing, and frequency counting",
+        "Sorting, binary search, and two-pointer patterns",
+        "Recursion, subsets, and backtracking",
+        "Linked lists and pointer practice",
+        "Stacks, queues, and monotonic patterns",
+        "Trees, traversals, and binary search trees",
+        "Heaps, priority queues, and top-K problems",
+        "Graphs, BFS, DFS, and connected components",
+        "Greedy strategies and dynamic programming foundations",
+        "Mixed problem solving and revision"
+      ]
+    }
   ];
   const TOPICS = {
     electronics: {
@@ -226,6 +268,7 @@
     onboardDraft: { syllabusText: "", manualTopics: "", timetableText: "", resourceText: "", classList: "", files: [] },
     profile: { name: "", institution: "", semester: "", branch: "", level: "New to these subjects", weekdayHours: 3.5, weekendHours: 8, availableHours: 3.5, classStart: "08:00", classEnd: "17:00", studyStart: "18:00", weekendStudyStart: "09:00", examDate: "", examType: "Mid-semester", targetLevel: "Confident understanding", notes: "", timetable: "", subjects: SUBJECTS.map(item => item.id) },
     resources: [], tasks: [], completedTaskIds: [], sessions: [], quizAttempts: [], dppAttempts: [], testAttempts: [],
+    career: { completedSessions: [], projects: [] },
     mistakes: [], testSession: null, search: "", resourceFilter: "All", settingsTab: "Profile", notifications: true, theme: "Dark", themeChosen: false, demo: false
   };
   let state = loadState();
@@ -256,7 +299,7 @@
       const raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) return structuredCloneFallback(BASE);
       const saved = JSON.parse(raw);
-      const restored = { ...structuredCloneFallback(BASE), ...saved, profile: { ...BASE.profile, ...(saved.profile || {}) } };
+      const restored = { ...structuredCloneFallback(BASE), ...saved, profile: { ...BASE.profile, ...(saved.profile || {}) }, career: { ...BASE.career, ...(saved.career || {}) } };
       if (!restored.themeChosen) restored.theme = "Dark";
       return restored;
     } catch (error) {
@@ -410,7 +453,7 @@
       const remote=rows[0].progress;
       const localPdfResources=state.resources.filter(item=>item.fileId);
       const remoteResources=Array.isArray(remote.resources)?remote.resources.filter(item=>!item.fileId):[];
-      state={...structuredCloneFallback(BASE),...remote,profile:{...BASE.profile,...(remote.profile||{})},resources:[...remoteResources,...localPdfResources]};
+      state={...structuredCloneFallback(BASE),...remote,profile:{...BASE.profile,...(remote.profile||{})},career:{...BASE.career,...(remote.career||{})},resources:[...remoteResources,...localPdfResources]};
       cloudSyncStatus="Account progress loaded";
       persist();
     } else {
@@ -1083,6 +1126,48 @@
     if (!state.dppAttempts.length&&!state.quizAttempts.length) return `<p class="small muted">Complete a flash quiz or DPP; Enginex will use your results rather than assume strong or weak topics.</p>`;
     return `<div class="upcoming-list">${selectedSubjects().map(subject=>{const score=subjectAccuracy(subject.id); return `<div class="upcoming-item"><span class="subject-symbol">${subject.icon}</span><div><h4>${esc(subject.short)} · ${score>=80?"Strong":score>=60?"Developing":"Priority revision"}</h4><p>${esc(adaptiveAdvice(subject.id))}</p></div></div>`;}).join("")}</div>`;
   }
+  function careerDateKey(date) {
+    return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`;
+  }
+  function nextCareerSessions() {
+    const today=new Date();
+    today.setHours(0,0,0,0);
+    const sessions=[];
+    for(let offset=0;offset<14&&sessions.length<3;offset++) {
+      const date=new Date(today);
+      date.setDate(today.getDate()+offset);
+      if([5,6,0].includes(date.getDay())) sessions.push(date);
+    }
+    return sessions;
+  }
+  function careerPage() {
+    const schedule=nextCareerSessions();
+    const completed=new Set(state.career.completedSessions||[]);
+    const weekOffset=date=>{
+      const today=new Date();
+      today.setHours(0,0,0,0);
+      return Math.floor((date.getTime()-today.getTime())/604800000);
+    };
+    const sessionCards=schedule.map(date=>{
+      const key=careerDateKey(date);
+      const start=date.getDay()===5?state.profile.studyStart:state.profile.weekendStudyStart;
+      const week=weekOffset(date);
+      return `<article class="career-day"><div class="career-day-heading"><div><span class="eyebrow">${localDate(date)}</span><h3>${date.toLocaleDateString(undefined,{weekday:"long"})}</h3></div><span class="pill">6 focused hours</span></div><div class="career-track-list">${CAREER_TRACKS.map(track=>{
+        const sessionId=`${key}-${track.id}`;
+        const done=completed.has(sessionId);
+        const topic=track.topics[week%track.topics.length];
+        const trackStart=track.id==="fullstack"?start:addMinutesToTime(start,180);
+        return `<div class="career-session ${done?"completed":""}"><div class="career-session-icon">${track.icon}</div><div class="career-session-info"><strong>${esc(track.name)}</strong><p>${esc(topic)}</p><span>${timeLabel(trackStart)} · 3 hours</span></div><button class="button ${done?"button-quiet":"button-primary"} button-small" data-action="toggle-career-session" data-id="${sessionId}">${done?"Completed ✓":"Mark complete"}</button></div>`;
+      }).join("")}</div></article>`;
+    }).join("");
+    const projects=state.career.projects||[];
+    return `${pageHeading("Your growth tracks","Web development &amp; C++ DSA","A dedicated Full-Stack and Data Structures &amp; Algorithms routine, with a portfolio to track your builds.",`<button class="button button-primary" data-action="add-project">＋ Add portfolio project</button>`)}
+      <div class="notice career-hours-notice"><strong>Dedicated schedule:</strong> Friday, Saturday, and Sunday · 3 hours for each track per day (6 extra focused hours total). Friday starts at your weekday study time; Saturday and Sunday start at your weekend study time. These blocks are additional to your regular study plan.</div>
+      <section class="career-section"><div class="card-heading"><div><h2>Upcoming weekend sessions</h2><p>Progress through a 12-week Full-Stack and C++ DSA curriculum.</p></div></div><div class="career-schedule">${sessionCards}</div></section>
+      <section class="career-section"><div class="card-heading"><div><h2>My project portfolio</h2><p>Add projects you build and keep demo/source links together.</p></div><span class="pill">${projects.length} project${projects.length===1?"":"s"}</span></div>
+        ${projects.length?`<div class="portfolio-grid">${projects.map(project=>`<article class="portfolio-card"><div class="portfolio-card-top"><span class="pill ${project.status==="Completed"?"pill-green":"pill-amber"}">${esc(project.status||"In progress")}</span><div class="portfolio-actions"><button class="button button-quiet button-small" data-action="edit-project" data-id="${project.id}">Edit</button><button class="icon-button" data-action="delete-project" data-id="${project.id}" aria-label="Remove ${esc(project.title)}">×</button></div></div><h3>${esc(project.title)}</h3><p>${esc(project.description||"No project description added yet.")}</p>${project.technologies?`<div class="portfolio-tech">${esc(project.technologies)}</div>`:""}<div class="portfolio-links">${project.demoUrl?`<a href="${esc(project.demoUrl)}" target="_blank" rel="noopener noreferrer">Live demo ↗</a>`:""}${project.repoUrl?`<a href="${esc(project.repoUrl)}" target="_blank" rel="noopener noreferrer">Source code ↗</a>`:""}</div></article>`).join("")}</div>`:`<div class="empty-state"><strong>Your portfolio starts with a project</strong><p>Track the websites and apps you build during the Full-Stack sessions.</p><button class="button button-primary button-small" data-action="add-project">＋ Add your first project</button></div>`}
+      </section>`;
+  }
   function resourcesPage() {
     const items=state.resources.filter(item=>(state.resourceFilter==="All"||item.category===state.resourceFilter)&&(!state.search||`${item.title} ${item.category} ${item.fileName||""} ${item.detail||""}`.toLowerCase().includes(state.search.toLowerCase())));
     return `${pageHeading("Your learning library","Resources","Organize syllabus files, lectures, reference links and verified past papers.",`<button class="button button-primary" data-action="add-resource">＋ Add resource</button>`)}
@@ -1105,7 +1190,7 @@
         :configured
           ?`<div class="notice">Create an account to sync your Enginex progress across devices, or sign in to restore your saved plan and scores.</div><form data-form="cloud-auth" class="cloud-auth-form"><input type="hidden" name="mode" value="${state.authMode==="signup"?"signup":"signin"}">${state.authMode==="signup"?`<div class="form-field">${formInput("Name (optional)","name",state.profile.name)}</div>`:""}<div class="form-grid"><div class="form-field">${formInput("Email","email","","email","you@example.com")}</div><div class="form-field">${formInput("Password (at least 8 characters)","password","","password","")}</div></div><button class="button button-primary" type="submit">${state.authMode==="signup"?"Create account":"Sign in"}</button></form><button class="button button-quiet button-small auth-mode-toggle" data-action="toggle-auth-mode">${state.authMode==="signup"?"Already have an account? Sign in":"New to Enginex? Create an account"}</button><p class="field-help">Use your own secure password. Email confirmation may be required by the account provider. The login history stores only your account ID and sign-in time.</p>`
           :`<div class="notice"><strong>Cloud login is not configured yet.</strong> Create a Supabase project, run the SQL in <code>supabase/schema.sql</code>, and add the project URL and anon key as GitHub Actions secrets named <code>ENGINEX_SUPABASE_URL</code> and <code>ENGINEX_SUPABASE_ANON_KEY</code>. Redeploy from GitHub Actions to enable account creation and cross-device syncing.</div><p class="small muted">Until a project is connected, your progress stays in this browser's local storage. Never put a Supabase service-role key in this app or its repository.</p>`;
-    } else body=`<div class="notice"><strong>Progress storage:</strong> ${cloudSession?"Your account is connected; the browser also keeps a local working copy.": "Without an account, your profile, plan, practice scores and resources are stored in this browser only."}${cloudSession?` Cloud status: ${esc(cloudSyncStatus)}.`:" A configured Supabase account enables private cloud sync and sign-in history."}</div><div style="margin-top:17px"><h3 style="font-size:12px">Reset curriculum</h3><p class="small muted">Remove this browser's saved Enginex profile, progress, curriculum and resources. A later sync will also replace the signed-in account's progress data. This cannot be undone.</p><button class="button button-danger" data-action="reset-data">Reset all local data</button></div>`;
+    } else body=`<div class="notice"><strong>Progress storage:</strong> ${cloudSession?"Your account is connected; the browser also keeps a local working copy.": "Without an account, your profile, plan, practice scores and resources are stored in this browser only."}${cloudSession?` Cloud status: ${esc(cloudSyncStatus)}.`:" A configured Supabase account enables private cloud sync and sign-in history."}</div>    <div style="margin-top:17px"><h3 style="font-size:12px">Reset curriculum</h3><p class="small muted">Remove this browser's saved Enginex profile, progress, curriculum, resources, career-track completion and portfolio projects. A later sync will also replace the signed-in account's progress data. This cannot be undone.</p><button class="button button-danger" data-action="reset-data">Reset all local data</button></div>`;
     return `${pageHeading("Your preferences","Settings","Manage your profile, study schedule, subjects and stored learning data.")}<div class="settings-tabs">${tabs.map(tab=>`<button class="tab-button ${state.settingsTab===tab?"active":""}" data-settings-tab="${tab}">${tab}</button>`).join("")}</div><section class="card">${body}</section>`;
   }
   function formInput(label,name,value,type="text",placeholder="",min="",max="",step="") {
@@ -1120,6 +1205,7 @@
       case "quiz": return quizPage();
       case "tests": return weeklyTestPage();
       case "coding-challenge": return codingChallengePage();
+      case "career": return careerPage();
       case "progress": return progressPage();
       case "resources": return resourcesPage();
       case "settings": return settingsPage();
@@ -1359,6 +1445,35 @@
     dialog.innerHTML=`<div class="dialog-content"><div class="eyebrow">Enginex</div><h2>${esc(title)}</h2><p>${esc(message)}</p><div class="dialog-actions"><button class="button button-quiet" data-action="close-dialog">Cancel</button><button class="button ${destructive?"button-danger":"button-primary"}" data-action="${action}">${esc(confirmLabel)}</button></div></div>`;
     if(typeof dialog.showModal==="function") dialog.showModal(); else dialog.setAttribute("open","");
   }
+  function projectDialog(project=null) {
+    const item=project||{title:"",description:"",technologies:"",demoUrl:"",repoUrl:"",status:"In progress"};
+    dialog.innerHTML=`<div class="dialog-content"><div class="eyebrow">Project portfolio</div><h2>${project?"Edit project":"Add a portfolio project"}</h2><form id="project-form"><input type="hidden" name="projectId" value="${esc(project?.id||"")}"><div class="form-grid"><div class="form-field full"><label class="field-label" for="project-title">Project name</label><input class="field" id="project-title" name="title" required maxlength="100" value="${esc(item.title)}" placeholder="e.g. Personal portfolio site"></div><div class="form-field full"><label class="field-label" for="project-description">What did you build?</label><textarea class="textarea" id="project-description" name="description" maxlength="600" placeholder="Describe the problem, features, and what you learned.">${esc(item.description)}</textarea></div><div class="form-field full"><label class="field-label" for="project-technologies">Technologies</label><input class="field" id="project-technologies" name="technologies" maxlength="180" value="${esc(item.technologies)}" placeholder="HTML, CSS, JavaScript, React…"></div><div class="form-field"><label class="field-label" for="project-demo">Live demo URL (optional)</label><input class="field" id="project-demo" name="demoUrl" type="url" value="${esc(item.demoUrl)}" placeholder="https://…"></div><div class="form-field"><label class="field-label" for="project-repo">Source code URL (optional)</label><input class="field" id="project-repo" name="repoUrl" type="url" value="${esc(item.repoUrl)}" placeholder="https://github.com/…"></div><div class="form-field"><label class="field-label" for="project-status">Status</label><select class="select" id="project-status" name="status">${["In progress","Completed"].map(status=>`<option ${item.status===status?"selected":""}>${status}</option>`).join("")}</select></div></div><div class="dialog-actions"><button class="button button-quiet" type="button" data-action="close-dialog">Cancel</button><button class="button button-primary" type="submit">${project?"Save changes":"Add project"}</button></div></form></div>`;
+    if(typeof dialog.showModal==="function") dialog.showModal(); else dialog.setAttribute("open","");
+  }
+  function saveProject(form) {
+    const data=new FormData(form);
+    const demoUrl=String(data.get("demoUrl")||"").trim();
+    const repoUrl=String(data.get("repoUrl")||"").trim();
+    if([demoUrl,repoUrl].some(url=>url&&!isValidUrl(url))) { toast("Project links must be valid HTTP or HTTPS URLs."); return; }
+    const id=String(data.get("projectId")||"")||uid();
+    const project={
+      id,
+      title:String(data.get("title")||"").trim(),
+      description:String(data.get("description")||"").trim(),
+      technologies:String(data.get("technologies")||"").trim(),
+      demoUrl,
+      repoUrl,
+      status:String(data.get("status")||"In progress"),
+      updatedAt:new Date().toISOString()
+    };
+    const current=state.career.projects||[];
+    const existingIndex=current.findIndex(item=>item.id===id);
+    if(existingIndex>=0) current[existingIndex]=project;
+    else current.unshift(project);
+    state.career.projects=current;
+    persist(); dialog.close(); render();
+    toast(existingIndex>=0?"Portfolio project updated.":"Portfolio project added.");
+  }
   function addResourceDialog() {
     dialog.innerHTML=`<div class="dialog-content"><div class="eyebrow">Resource library</div><h2>Add a learning resource</h2><form id="resource-form"><div class="form-grid"><div class="form-field full"><label class="field-label" for="resource-title">Title</label><input class="field" id="resource-title" name="title" required maxlength="120" placeholder="Book title, lecture notes…"></div><div class="form-field"><label class="field-label" for="resource-category">Category</label><select class="select" id="resource-category" name="category" data-resource-category data-pyq-category>${["Syllabus","Lecture","YouTube","Books (PDF)","Notes (PDF)","Notes","PYQs","Reference Material"].map(item=>`<option>${item}</option>`).join("")}</select></div><div class="form-field" id="resource-url-field"><label class="field-label" for="resource-url">Resource / source URL</label><input class="field" id="resource-url" name="url" type="url" placeholder="https://…"></div><div class="form-field full" id="resource-pdf-field" hidden><label class="field-label" for="resource-pdf">PDF file</label><input class="field" id="resource-pdf" name="pdfFile" type="file" accept=".pdf,application/pdf"><span class="field-help">PDF only · up to 50 MB. Kept in this browser (IndexedDB).</span></div><div class="form-field full" id="pyq-fields" hidden><div class="notice">PYQ records remain <strong>unverified references</strong> in this prototype. Providing source details does not make Enginex claim authenticity.</div><div class="form-grid" style="margin-top:10px">${formInput("University / College","pyqUniversity","","text","")}${formInput("Paper year","pyqYear","","number","", "1900",String(new Date().getFullYear()))}${formInput("Subject","pyqSubject","","text","")}${formInput("Marks","pyqMarks","","number","", "1","100","1")}</div></div><div class="form-field full"><label class="field-label" for="resource-detail">Note (optional)</label><textarea class="textarea" id="resource-detail" name="detail" placeholder="Source, topic, or notes…"></textarea></div></div><div class="dialog-actions"><button class="button button-quiet" type="button" data-action="close-dialog">Cancel</button><button class="button button-primary">Save resource</button></div></form></div>`;
     if(typeof dialog.showModal==="function") dialog.showModal(); else dialog.setAttribute("open","");
@@ -1540,6 +1655,29 @@
       case "submit-test": showTestSubmit(false); break;
       case "challenge-solved":
       case "challenge-solution": submitCodingChallenge(action==="challenge-solved"?"solved":"solution",id); break;
+      case "toggle-career-session": {
+        const completed=new Set(state.career.completedSessions||[]);
+        if(completed.has(id)) completed.delete(id); else completed.add(id);
+        state.career.completedSessions=[...completed];
+        persist(); render();
+        toast(completed.has(id)?"Career session marked complete.":"Career session marked incomplete.");
+        break;
+      }
+      case "add-project": projectDialog(); break;
+      case "edit-project": {
+        const project=state.career.projects.find(item=>item.id===id);
+        if(project) projectDialog(project);
+        break;
+      }
+      case "delete-project":
+        state.deleteProjectId=id;
+        confirmDialog("Remove this project?","This removes the project card from your local portfolio. Your deployed site and repository are not affected.","Remove project","confirm-delete-project",true);
+        break;
+      case "confirm-delete-project":
+        state.career.projects=state.career.projects.filter(item=>item.id!==state.deleteProjectId);
+        state.deleteProjectId=null;
+        persist(); dialog.close(); render(); toast("Portfolio project removed.");
+        break;
       case "add-resource": addResourceDialog(); break;
       case "open-resource-pdf": openResourcePdf(id); break;
       case "toggle-video": state.playingResourceId=state.playingResourceId===id?null:id; persist(); render(); break;
@@ -1702,8 +1840,10 @@
       if(!term) return;
       const matchingTask=state.tasks.find(task=>task.title.toLowerCase().includes(term)||subjectById(task.subjectId).short.toLowerCase().includes(term));
       const matchingResource=state.resources.some(item=>`${item.title} ${item.category} ${item.detail||""}`.toLowerCase().includes(term));
+      const matchingProject=(state.career.projects||[]).some(item=>`${item.title} ${item.description} ${item.technologies}`.toLowerCase().includes(term));
       if(matchingTask) { state.taskFilter="All"; if(matchingTask.type==="test")go("tests");else startTask(matchingTask.id); }
       else if(matchingResource) go("resources");
+      else if(matchingProject) go("career");
       else { go("curriculum"); toast("No exact match. Browse the curriculum or resource library."); }
     }
   });
@@ -1723,6 +1863,7 @@
     event.preventDefault();
     if(event.target.id==="test-score-form") finishTest(event.target);
     else if(event.target.id==="resource-form") saveResource(event.target);
+    else if(event.target.id==="project-form") saveProject(event.target);
   });
   dialog.addEventListener("change",event=>{
     if(event.target.matches("[data-resource-category]")) updateResourceFormFields();
