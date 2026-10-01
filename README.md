@@ -23,8 +23,9 @@ The workflow in `.github/workflows/pages.yml` deploys the site after a push to `
 ## Prototype boundaries
 
 - Student data and progress are stored in this browser's local storage; there is no account service, server database, or cross-device synchronization.
+- PDF books and notes added in Resources are kept in this browser's IndexedDB storage (up to 50 MB per file). They are not uploaded or synchronized across devices, and may be removed if browser site data is cleared.
 - Sample subjects and topic questions are illustrative starter material. Verify them against the applicable university syllabus.
 - Questions marked **PYQ-Style Practice** are not represented as authentic university past papers. No PYQ source has been verified by this prototype.
 - Supported YouTube video and playlist links can be played in an embedded YouTube player inside Enginex. Playback still depends on the source video's embedding permissions and network access.
-- Uploaded document contents are not parsed. Paste syllabus topics manually to use them in the generated schedule.
+- PDF book and note files are stored for opening from the Resources library; their contents are not parsed. Paste syllabus topics manually to use them in the generated schedule.
 - Curriculum generation currently uses deterministic, built-in topic templates. It does not call an AI service.
